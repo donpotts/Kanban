@@ -1,0 +1,42 @@
+[
+  {
+    "Id": 1,
+    "Name": "Task 1",
+    "Title": "RAD-001",
+    "Status": "To Do",
+    "Summary": "Analyze the new requirements gathered from the customer.",
+    "Assignee": "Don Potts"
+  },
+  {
+    "Id": 2,
+    "Name": "Task 2",
+    "Title": "RAD-002",
+    "Status": "In Progress",
+    "Summary": "Improve application performance",
+    "Assignee": "Don Potts"
+  },
+  {
+    "Id": 3,
+    "Name": "Task 3",
+    "Title": "RAD-003",
+    "Status": "To Do",
+    "Summary": "Arrange a web meeting with the customer to get new requirements.",
+    "Assignee": "Don Potts"
+  },
+  {
+    "Id": 4,
+    "Name": "Task 4",
+    "Title": "RAD-004",
+    "Status": "Done",
+    "Summary": "Fix the issues reported in FMX template.",
+    "Assignee": "Don Potts"
+  },
+  {
+    "Id": 5,
+    "Name": "Task 5",
+    "Title": "RAD-005",
+    "Status": "Testing",
+    "Summary": "Fix the issues reported by the customer.",
+    "Assignee": "Don Potts"
+  }
+]

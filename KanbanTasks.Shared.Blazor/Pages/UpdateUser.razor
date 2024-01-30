@@ -1,0 +1,178 @@
+@page "/user/{Id}"
+@inject AppService AppService
+@inject NavigationManager Navigation
+@inject HttpClient HttpClient
+@attribute [Authorize]
+
+<PageTitle>Update User</PageTitle>
+
+<h1>Update User</h1>
+
+@if (user == null)
+{
+    @if (loadError == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <p class="text-danger">@loadError</p>
+    }
+}
+else
+{
+    <EditForm Model="@updateModel" OnValidSubmit="@HandleValidSubmitAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label">Id</label>
+            <input type="text" class="form-control" value="@user.Id" disabled />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input type="text" class="form-control" value="@user.Email" disabled />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Phone Number</label>
+            <input type="text" class="form-control" value="@user.PhoneNumber" disabled />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">First Name</label>
+            <InputText class="form-control" @bind-Value="updateModel.FirstName" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Last Name</label>
+            <InputText class="form-control" @bind-Value="updateModel.LastName" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Title</label>
+            <InputText class="form-control" @bind-Value="updateModel.Title" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Company Name</label>
+            <InputText class="form-control" @bind-Value="updateModel.CompanyName" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Photo</label>
+            <InputFile class="form-control" OnChange="@(async args => updateModel.Photo = await UploadImageAsync(args))" accept=".png,.jpg,.jpeg" />
+            @if (!string.IsNullOrEmpty(updateModel.Photo))
+            {
+                <img src="@GetAbsoluteUri(updateModel.Photo)" class="mt-2" style="width:128px;height:128px;object-fit:contain;" />
+            }
+        </div>
+        <div class="mb-3 text-end">
+            <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(updateError))
+        {
+            <div class="mb-3 text-danger">@updateError</div>
+        }
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = null!;
+
+    private string? loadError;
+
+    private UpdateApplicationUserDto updateModel = new();
+    private ApplicationUserDto? user;
+    private string? updateError;
+
+    private string GetAbsoluteUri(string uri)
+    {
+        if (!uri.StartsWith("/"))
+        {
+            return uri;
+        }
+
+        var baseUri = HttpClient.BaseAddress;
+
+        if (baseUri == null)
+        {
+            throw new Exception("Unable to determine base address");
+        }
+
+        Uri absolute = new(baseUri, uri);
+
+        return absolute.ToString();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            user = await AppService.GetUserByIdAsync(Id);
+
+            updateModel = new()
+            {
+                FirstName = user?.FirstName,
+                LastName = user?.LastName,
+                Title = user?.Title,
+                CompanyName = user?.CompanyName,
+                Photo = user?.Photo,
+            };
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("user");
+    }
+
+    private async Task HandleValidSubmitAsync()
+    {
+        updateError = null;
+        StateHasChanged();
+
+        try
+        {
+            await AppService.UpdateUserAsync(Id, updateModel);
+        }
+        catch (Exception ex)
+        {
+            updateError = ex.Message;
+            StateHasChanged();
+            return;
+        }
+
+        Navigation.NavigateTo("user");
+    }
+
+    private async Task<string?> UploadImageAsync(InputFileChangeEventArgs args, int maxWidth = 256, int maxHeight = 256)
+    {
+        updateError = null;
+        StateHasChanged();
+
+        var file = args.File;
+
+        if (file.ContentType != "image/png" && file.ContentType != "image/jpeg")
+        {
+            updateError = "Only PNG and JPEG images can be uploaded.";
+            StateHasChanged();
+            return null;
+        }
+
+        var image = await file.RequestImageFileAsync("image/png", maxWidth, maxHeight);
+
+        try
+        {
+            return await AppService.UploadImageAsync(image);
+        }
+        catch (Exception ex)
+        {
+            updateError = ex.Message;
+            StateHasChanged();
+        }
+
+        return null;
+    }
+}

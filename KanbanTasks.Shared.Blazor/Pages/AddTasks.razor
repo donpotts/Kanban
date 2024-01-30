@@ -1,0 +1,151 @@
+@page "/tasks/add"
+@inject AppService AppService
+@inject NavigationManager Navigation
+@inject HttpClient HttpClient
+@attribute [Authorize]
+
+<PageTitle>Add Tasks</PageTitle>
+
+<h1>Add Tasks</h1>
+
+@if (loading)
+{
+    @if (loadError == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <p class="text-danger">@loadError</p>
+    }
+}
+else
+{
+    <EditForm Model="@record" OnValidSubmit="@HandleValidSubmitAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label">Name</label>
+            <InputText class="form-control" @bind-Value="record.Name" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Title</label>
+            <InputText class="form-control" @bind-Value="record.Title" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Status</label>
+            <InputText class="form-control" @bind-Value="record.Status" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Summary</label>
+            <InputText class="form-control" @bind-Value="record.Summary" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Assignee</label>
+            <InputText class="form-control" @bind-Value="record.Assignee" />
+        </div>
+        <div class="mb-3 text-end">
+            <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(addError))
+        {
+            <div class="mb-3 text-danger">@addError</div>
+        }
+    </EditForm>
+}
+
+@code {
+    private bool loading = true;
+    private string? loadError;
+    private Tasks record = new();
+    private string? addError;
+
+    private string GetAbsoluteUri(string uri)
+    {
+        if (!uri.StartsWith("/"))
+        {
+            return uri;
+        }
+
+        var baseUri = HttpClient.BaseAddress;
+
+        if (baseUri == null)
+        {
+            throw new Exception("Unable to determine base address");
+        }
+
+        Uri absolute = new(baseUri, uri);
+
+        return absolute.ToString();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        try
+        {
+            loading = false;
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("tasks");
+    }
+
+    private async Task HandleValidSubmitAsync()
+    {
+        addError = null;
+        StateHasChanged();
+
+        try
+        {
+            await AppService.InsertTasksAsync(record);
+        }
+        catch (Exception ex)
+        {
+            addError = ex.Message;
+            StateHasChanged();
+            return;
+        }
+
+        Navigation.NavigateTo("tasks");
+    }
+
+    private async Task<string?> UploadImageAsync(InputFileChangeEventArgs args, int maxWidth = 256, int maxHeight = 256)
+    {
+        addError = null;
+        StateHasChanged();
+
+        var file = args.File;
+
+        if (file.ContentType != "image/png" && file.ContentType != "image/jpeg")
+        {
+            addError = "Only PNG and JPEG images can be uploaded.";
+            StateHasChanged();
+            return null;
+        }
+
+        var image = await file.RequestImageFileAsync("image/png", maxWidth, maxHeight);
+
+        try
+        {
+            return await AppService.UploadImageAsync(image);
+        }
+        catch (Exception ex)
+        {
+            addError = ex.Message;
+            StateHasChanged();
+        }
+
+        return null;
+    }
+}

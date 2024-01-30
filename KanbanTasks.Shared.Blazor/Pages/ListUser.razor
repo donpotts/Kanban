@@ -1,0 +1,158 @@
+@page "/user"
+@inject AppService AppService
+@inject NavigationManager Navigation
+@inject HttpClient HttpClient
+@attribute [Authorize]
+
+<PageTitle>User</PageTitle>
+
+<h1>User</h1>
+
+@if (!string.IsNullOrEmpty(loadError))
+{
+    <p class="text-danger">@loadError</p>
+}
+
+<div class="mb-3 text-end">
+    <NavLink href="user/add" class="btn btn-primary">
+        <i class="bi bi-plus-circle"></i>
+    </NavLink>
+</div>
+
+<div class="grid table-responsive">
+    <QuickGrid @ref="grid" ItemsProvider="@itemsProvider" Pagination="@pagination" Theme="bootstrap" Class="table">
+        <PropertyColumn Property="@(x => x.Id)" Sortable="true" />
+        <PropertyColumn Property="@(x => x.Email)" Sortable="true" />
+        <PropertyColumn Title="Phone Number" Property="@(x => x.PhoneNumber)" Sortable="true" />
+        <PropertyColumn Title="First Name" Property="@(x => x.FirstName)" Sortable="true" />
+        <PropertyColumn Title="Last Name" Property="@(x => x.LastName)" Sortable="true" />
+        <PropertyColumn Property="@(x => x.Title)" Sortable="true" />
+        <PropertyColumn Title="Company Name" Property="@(x => x.CompanyName)" Sortable="true" />
+        <TemplateColumn Title="Photo">
+            @if (!string.IsNullOrEmpty(context.Photo))
+            {
+                <img src="@GetAbsoluteUri(context.Photo)" style="width:128px;height:128px;object-fit:contain;" />
+            }
+        </TemplateColumn>
+        <TemplateColumn>
+            <button class="btn btn-secondary" @onclick="@(() => RecordClicked(context.Id))">
+                <i class="bi bi-pencil-fill"></i>
+            </button>
+            <button type="button" class="btn btn-danger float-right" data-bs-toggle="modal" data-bs-target="#deleteModal" @onclick="(() => modalTarget = context)">
+                <i class="bi bi-trash-fill"></i>
+            </button>
+        </TemplateColumn>
+    </QuickGrid>
+</div>
+
+<Paginator State="@pagination" />
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" @onclick="(() => modalTarget = null)"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you wish to delete this user?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @onclick="(() => modalTarget = null)">Cancel</button>
+                <button type="button" class="btn btn-danger" data-bs-dismiss="modal" @onclick="DeleteAsync">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string? loadError;
+
+    private QuickGrid<ApplicationUserDto>? grid;
+    private GridItemsProvider<ApplicationUserDto>? itemsProvider;
+    private PaginationState pagination = new() { ItemsPerPage = 10 };
+
+    private ApplicationUserDto? modalTarget;
+
+    private string GetAbsoluteUri(string uri)
+    {
+        if (!uri.StartsWith("/"))
+        {
+            return uri;
+        }
+
+        var baseUri = HttpClient.BaseAddress;
+
+        if (baseUri == null)
+        {
+            throw new Exception("Unable to determine base address");
+        }
+
+        Uri absolute = new(baseUri, uri);
+
+        return absolute.ToString();
+    }
+
+    protected override void OnInitialized()
+    {
+        itemsProvider = async req =>
+        {
+            var top = req.Count;
+            var skip = req.StartIndex;
+            var orderby = ODataHelpers.GetOrderBy<ApplicationUserDto>(req.GetSortByProperties());
+
+            AppService.ODataResult<ApplicationUserDto>? result = null;
+
+            try
+            {
+                result = await AppService.ListUserODataAsync(top, skip, orderby, null, true);
+            }
+            catch (Exception ex)
+            {
+                loadError = ex.Message;
+            }
+
+            return GridItemsProviderResult.From(
+                result?.Value?.ToArray() ?? Array.Empty<ApplicationUserDto>(),
+                result?.Count ?? 0);
+        };
+    }
+
+    private void RecordClicked(string? id)
+    {
+        if (id == null)
+        {
+            return;
+        }
+
+        Navigation.NavigateTo($"user/{id}");
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (modalTarget?.Id == null)
+        {
+            return;
+        }
+
+        var id = (string)modalTarget.Id;
+
+        modalTarget = null;
+
+        loadError = null;
+        StateHasChanged();
+
+        try
+        {
+            await AppService.DeleteUserAsync(id);
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+            StateHasChanged();
+            return;
+        }
+
+        await grid!.RefreshDataAsync();
+    }
+}

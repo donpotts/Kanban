@@ -1,0 +1,161 @@
+@page "/tasks/{Id:long}"
+@inject AppService AppService
+@inject NavigationManager Navigation
+@inject HttpClient HttpClient
+@attribute [Authorize]
+
+<PageTitle>Update Tasks</PageTitle>
+
+<h1>Update Tasks</h1>            
+
+@if (record == null)
+{
+    @if (loadError == null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else
+    {
+        <p class="text-danger">@loadError</p>
+    }
+}
+else
+{
+    <EditForm Model="@record" OnValidSubmit="@HandleValidSubmitAsync">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label">Id</label>
+            <input type="text" class="form-control" value="@record.Id" disabled />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Name</label>
+            <InputText class="form-control" @bind-Value="record.Name" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Title</label>
+            <InputText class="form-control" @bind-Value="record.Title" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Status</label>
+            <InputText class="form-control" @bind-Value="record.Status" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Summary</label>
+            <InputText class="form-control" @bind-Value="record.Summary" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Assignee</label>
+            <InputText class="form-control" @bind-Value="record.Assignee" />
+        </div>
+        <div class="mb-3 text-end">
+            <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(updateError))
+        {
+            <div class="mb-3 text-danger">@updateError</div>
+        }
+    </EditForm>
+}
+
+@code {
+    [Parameter]
+    public long Id { get; set; }
+
+    private string? loadError;
+
+    private Tasks? record;
+    private string? updateError;
+
+    private string GetAbsoluteUri(string uri)
+    {
+        if (!uri.StartsWith("/"))
+        {
+            return uri;
+        }
+
+        var baseUri = HttpClient.BaseAddress;
+
+        if (baseUri == null)
+        {
+            throw new Exception("Unable to determine base address");
+        }
+
+        Uri absolute = new(baseUri, uri);
+
+        return absolute.ToString();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            record = await AppService.GetTasksByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            loadError = ex.Message;
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("tasks");
+    }
+
+    private async Task HandleValidSubmitAsync()
+    {
+        if (record == null)
+        {
+            throw new InvalidOperationException();
+        }
+
+        updateError = null;
+        StateHasChanged();
+
+        try
+        {
+            await AppService.UpdateTasksAsync(Id, record);
+        }
+        catch (Exception ex)
+        {
+            updateError = ex.Message;
+            StateHasChanged();
+            return;
+        }
+
+        Navigation.NavigateTo("tasks");
+    }
+
+    private async Task<string?> UploadImageAsync(InputFileChangeEventArgs args, int maxWidth = 256, int maxHeight = 256)
+    {
+        updateError = null;
+        StateHasChanged();
+
+        var file = args.File;
+
+        if (file.ContentType != "image/png" && file.ContentType != "image/jpeg")
+        {
+            updateError = "Only PNG and JPEG images can be uploaded.";
+            StateHasChanged();
+            return null;
+        }
+
+        var image = await file.RequestImageFileAsync("image/png", maxWidth, maxHeight);
+
+        try
+        {
+            return await AppService.UploadImageAsync(image);
+        }
+        catch (Exception ex)
+        {
+            updateError = ex.Message;
+            StateHasChanged();
+        }
+
+        return null;
+    }
+}

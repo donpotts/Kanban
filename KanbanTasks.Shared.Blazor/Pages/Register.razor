@@ -1,0 +1,95 @@
+@page "/register"
+@inject AppService AppService
+@inject NavigationManager Navigation
+
+<PageTitle>Register</PageTitle>
+
+<h1>Register</h1>
+
+<div class="mb-3">
+    <NavLink href="login">Login with existing account</NavLink>
+</div>
+
+<EditForm Model="@registerModel" OnValidSubmit="@HandleValidSubmitAsync">
+    <CustomValidation @ref="customValidation" />
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label">Email</label>
+        <InputText class="form-control" @bind-Value="registerModel.Email" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Password</label>
+        <InputText type="password" class="form-control" @bind-Value="registerModel.Password" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Confirm Password</label>
+        <InputText type="password" class="form-control" @bind-Value="registerModel.ConfirmPassword" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">First Name</label>
+        <InputText class="form-control" @bind-Value="registerModel.FirstName" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Last Name</label>
+        <InputText class="form-control" @bind-Value="registerModel.LastName" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Title</label>
+        <InputText class="form-control" @bind-Value="registerModel.Title" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Company Name</label>
+        <InputText class="form-control" @bind-Value="registerModel.CompanyName" />
+    </div>
+    <div class="mb-3 text-end">
+        <button type="submit" class="btn btn-primary">Register</button>
+    </div>
+</EditForm> 
+
+@code {
+    private RegisterModel registerModel = new();
+
+    private CustomValidation? customValidation;
+
+    private async void HandleValidSubmitAsync()
+    {
+        customValidation?.ClearErrors();
+
+        Dictionary<string, List<string>> errors = [];
+
+        if (registerModel.Password != registerModel.ConfirmPassword)
+        {
+            errors.Add(nameof(RegisterModel.ConfirmPassword),
+            [
+                "Confirm password does not match Password."
+            ]);
+        }
+
+        if (errors.Any())
+        {
+            customValidation?.DisplayErrors(errors);
+            return;
+        }
+
+        try
+        {
+            errors = await AppService.RegisterUserAsync(registerModel);
+
+            if (errors.Any())
+            {
+                customValidation?.DisplayErrors(errors);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            errors = new() { { string.Empty, [ex.Message] } };
+            customValidation?.DisplayErrors(errors);
+            return;
+        }
+
+        Navigation.NavigateTo("login");
+    }
+}

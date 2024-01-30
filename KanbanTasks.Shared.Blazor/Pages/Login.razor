@@ -1,0 +1,58 @@
+@page "/login"
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Login</PageTitle>
+
+<h1>Login</h1>
+
+<div class="mb-3">
+    <NavLink href="register">Create an account</NavLink>
+</div>
+
+<EditForm Model="@loginModel" OnValidSubmit="@HandleValidSubmitAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label">Email</label>
+        <InputText class="form-control" @bind-Value="loginModel.Email" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Password</label>
+        <InputText type="password" class="form-control" @bind-Value="loginModel.Password" />
+    </div>
+    <div class="mb-3 text-end">
+        <button type="submit" class="btn btn-primary">Login</button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(loginError))
+    {
+        <div class="mb-3 text-danger">@loginError</div>
+    }
+</EditForm>
+
+@code {
+    private LoginModel loginModel = new();
+    private string? loginError;
+
+    private async Task HandleValidSubmitAsync()
+    {
+        loginError = null;
+        StateHasChanged();
+
+        try
+        {
+            await ((IdentityAuthenticationStateProvider)AuthenticationStateProvider)
+                .LoginAsync(loginModel);
+        }
+        catch (Exception ex)
+        {
+            loginError = ex.Message;
+            StateHasChanged();
+            return;
+        }
+
+        Navigation.NavigateTo("");
+    }
+}

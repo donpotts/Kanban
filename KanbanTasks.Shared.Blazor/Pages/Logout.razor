@@ -1,0 +1,18 @@
+@page "/logout"
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Logout</PageTitle>
+
+<h1>Logout</h1>
+
+<p><em>Logging out...</em></p>
+
+@code {
+    protected override void OnInitialized()
+    {
+        ((IdentityAuthenticationStateProvider)AuthenticationStateProvider).Logout();
+
+        Navigation.NavigateTo("");
+    }
+}

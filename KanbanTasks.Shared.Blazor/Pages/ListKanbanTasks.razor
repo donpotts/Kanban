@@ -1,0 +1,92 @@
+@page "/kanban"
+@inject AppService AppService
+@inject NavigationManager Navigation
+@inject HttpClient HttpClient
+@attribute [AllowAnonymous]
+
+<PageTitle>Kanban Tasks View</PageTitle>
+
+<h1>Kanban Tasks View</h1>
+
+<head>
+    <link href="_content/Syncfusion.Blazor.Themes/bootstrap5.css" rel="stylesheet" />
+    <script src="_content/Syncfusion.Blazor.Core/scripts/syncfusion-blazor.min.js" type="text/javascript"></script>
+</head>
+
+<SfKanban ID="k1" TValue="Tasks" KeyField="Status" AllowDragAndDrop="true">
+    <SfDataManager Url="/odata/KanbanTasks" Adaptor="@Syncfusion.Blazor.Adaptors.ODataV4Adaptor" />
+    <KanbanEvents TValue="Tasks" CardDoubleClick="@CardDoubleClickHandler"></KanbanEvents>
+    <KanbanColumns>
+        <KanbanColumn HeaderText="To Do" KeyField="@(new List<string>() {"To Do"})"></KanbanColumn>
+        <KanbanColumn HeaderText="In Progress" KeyField="@(new List<string>() {"In Progress"})"></KanbanColumn>
+        <KanbanColumn HeaderText="Testing" KeyField="@(new List<string>() {"Testing"})"></KanbanColumn>
+        <KanbanColumn HeaderText="Done" KeyField="@(new List<string>() {"Done"})"></KanbanColumn>
+    </KanbanColumns>
+    <KanbanCardSettings HeaderField="Id" ContentField="Summary"></KanbanCardSettings>
+    <KanbanSwimlaneSettings KeyField="Assignee"></KanbanSwimlaneSettings>
+</SfKanban>
+
+@if (!string.IsNullOrEmpty(loadError))
+{
+    <p class="text-danger">@loadError</p>
+}
+
+@code {
+    private string? loadError;
+    private Dictionary<string, string> headers = [];
+
+    private QuickGrid<Tasks>? grid;
+    private GridItemsProvider<Tasks>? itemsProvider;
+    private PaginationState pagination = new() { ItemsPerPage = 10 };
+
+    private Tasks? modalTarget;
+
+    private string GetAbsoluteUri(string uri)
+    {
+        if (!uri.StartsWith("/"))
+        {
+            return uri;
+        }
+
+        var baseUri = HttpClient.BaseAddress;
+
+        if (baseUri == null)
+        {
+            throw new Exception("Unable to determine base address");
+        }
+
+        Uri absolute = new(baseUri, uri);
+
+        return absolute.ToString();
+    }
+
+    protected override void OnInitialized()
+    {
+        itemsProvider = async req =>
+        {
+            var top = req.Count;
+            var skip = req.StartIndex;
+            var orderby = ODataHelpers.GetOrderBy<Tasks>(req.GetSortByProperties());
+
+            AppService.ODataResult<Tasks>? result = null;
+
+            try
+            {
+                result = await AppService.ListKanbanTasksODataAsync(top, skip, orderby, null, true, null);
+            }
+            catch (Exception ex)
+            {
+                loadError = ex.Message;
+            }
+
+            return GridItemsProviderResult.From(
+                result?.Value?.ToArray() ?? Array.Empty<Tasks>(),
+                result?.Count ?? 0);
+        };
+    }
+
+    public void CardDoubleClickHandler(CardClickEventArgs<Tasks> args)
+    {
+        args.Cancel = true;
+    }
+}

@@ -1,0 +1,163 @@
+@page "/user/add"
+@inject AppService AppService
+@inject NavigationManager Navigation
+@inject HttpClient HttpClient
+@attribute [Authorize(Roles = "Administrator")]
+
+<PageTitle>Add User</PageTitle>
+
+<h1>Add User</h1>
+
+<EditForm Model="@registerModel" OnValidSubmit="@HandleValidSubmitAsync">
+    <CustomValidation @ref="customValidation" />
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label class="form-label">Email</label>
+        <InputText class="form-control" @bind-Value="registerModel.Email" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Password</label>
+        <InputText type="password" class="form-control" @bind-Value="registerModel.Password" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Confirm Passowrd</label>
+        <InputText type="password" class="form-control" @bind-Value="registerModel.ConfirmPassword" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">First Name</label>
+        <InputText class="form-control" @bind-Value="registerModel.FirstName" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Last Name</label>
+        <InputText class="form-control" @bind-Value="registerModel.LastName" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Title</label>
+        <InputText class="form-control" @bind-Value="registerModel.Title" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Company Name</label>
+        <InputText class="form-control" @bind-Value="registerModel.CompanyName" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Photo</label>
+        <InputFile class="form-control" OnChange="@(async args => registerModel.Photo = await UploadImageAsync(args))" accept=".png,.jpg,.jpeg" />
+        @if (!string.IsNullOrEmpty(registerModel.Photo))
+        {
+            <img src="@GetAbsoluteUri(registerModel.Photo)" class="mt-2" style="width:128px;height:128px;object-fit:contain;" />
+        }
+    </div>
+    <div class="mb-3 text-end">
+        <button type="button" class="btn btn-secondary" @onclick="Cancel">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+</EditForm> 
+
+@code {
+    private RegisterModel registerModel = new();
+
+    private CustomValidation? customValidation;
+
+    private string GetAbsoluteUri(string uri)
+    {
+        if (!uri.StartsWith("/"))
+        {
+            return uri;
+        }
+
+        var baseUri = HttpClient.BaseAddress;
+
+        if (baseUri == null)
+        {
+            throw new Exception("Unable to determine base address");
+        }
+
+        Uri absolute = new(baseUri, uri);
+
+        return absolute.ToString();
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("user");
+    }
+
+    private async void HandleValidSubmitAsync()
+    {
+        customValidation?.ClearErrors();
+
+        Dictionary<string, List<string>> errors = [];
+
+        if (registerModel.Password != registerModel.ConfirmPassword)
+        {
+            errors.Add(nameof(RegisterModel.ConfirmPassword),
+            [
+                "Confirm password does not match Password."
+            ]);
+        }
+
+        if (errors.Any())
+        {
+            customValidation?.DisplayErrors(errors);
+            return;
+        }
+
+        try
+        {
+            errors = await AppService.RegisterUserAsync(registerModel);
+
+            if (errors.Any())
+            {
+                customValidation?.DisplayErrors(errors);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            errors = new() { { string.Empty, [ex.Message] } };
+            customValidation?.DisplayErrors(errors);
+            return;
+        }
+
+        Navigation.NavigateTo("user");
+    }
+
+    private async Task<string?> UploadImageAsync(InputFileChangeEventArgs args, int maxWidth = 256, int maxHeight = 256)
+    {
+        customValidation?.ClearErrors();
+
+        Dictionary<string, List<string>> errors = [];
+
+        var file = args.File;
+
+        if (file.ContentType != "image/png" && file.ContentType != "image/jpeg")
+        {
+            errors.Add(nameof(RegisterModel.ConfirmPassword),
+            [
+                "Only PNG and JPEG images can be uploaded."
+            ]);
+        }
+
+        if (errors.Any())
+        {
+            customValidation?.DisplayErrors(errors);
+            return null;
+        }
+
+        var image = await file.RequestImageFileAsync("image/png", maxWidth, maxHeight);
+
+        try
+        {
+            return await AppService.UploadImageAsync(image);
+        }
+        catch (Exception ex)
+        {
+            errors = new() { { string.Empty, [ex.Message] } };
+            customValidation?.DisplayErrors(errors);
+            return null;
+        }
+    }
+}
